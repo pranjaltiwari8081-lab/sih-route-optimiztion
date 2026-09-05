@@ -12,7 +12,7 @@ def calculate_candidate_route(
     # First leg: Start → Waypoint
     # ----------------------------------------
 
-    first_leg = get_google_route(
+    first_leg = get_route(
         start,
         waypoint
     )
@@ -21,7 +21,7 @@ def calculate_candidate_route(
     # Second leg: Waypoint → Destination
     # ----------------------------------------
 
-    second_leg = get_google_route(
+    second_leg = get_route(
         waypoint,
         destination
     )
@@ -114,7 +114,7 @@ def calculate_candidate_route(
                 2
             ),
 
-        "google_duration_min":
+        "routing_duration_min":
             round(
                 routing_time,
                 2
@@ -154,7 +154,7 @@ def find_best_route(
 
     if not waypoints:
 
-        direct_route = get_google_route(
+        direct_route = get_route(
             start,
             destination
         )
@@ -225,7 +225,7 @@ def find_best_route(
                 "distance_km":
                     direct_route["distance_km"],
 
-                "google_duration_min":
+                "routing_duration_min":
                     direct_route["duration_min"],
 
                 "ml_travel_time_min":
