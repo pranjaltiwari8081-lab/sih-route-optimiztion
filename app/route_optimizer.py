@@ -8,9 +8,8 @@ def calculate_candidate_route(
     destination,
     request
 ):
-
     # ----------------------------------------
-    # First leg
+    # First leg: Start → Waypoint
     # ----------------------------------------
 
     first_leg = get_google_route(
@@ -18,9 +17,8 @@ def calculate_candidate_route(
         waypoint
     )
 
-
     # ----------------------------------------
-    # Second leg
+    # Second leg: Waypoint → Destination
     # ----------------------------------------
 
     second_leg = get_google_route(
@@ -28,28 +26,23 @@ def calculate_candidate_route(
         destination
     )
 
-
     # ----------------------------------------
     # Total distance
     # ----------------------------------------
 
     total_distance = (
         first_leg["distance_km"]
-        +
-        second_leg["distance_km"]
+        + second_leg["distance_km"]
     )
 
-
     # ----------------------------------------
-    # Google travel time
+    # Routing travel time
     # ----------------------------------------
 
-    google_time = (
+    routing_time = (
         first_leg["duration_min"]
-        +
-        second_leg["duration_min"]
+        + second_leg["duration_min"]
     )
-
 
     # ----------------------------------------
     # ML prediction
@@ -83,15 +76,9 @@ def calculate_candidate_route(
             request.perishability_score
     )
 
+    ml_time = ml_result["travel_time_min"]
 
-    ml_time = (
-        ml_result["travel_time_min"]
-    )
-
-    ml_cost = (
-        ml_result["delivery_cost_inr"]
-    )
-
+    ml_cost = ml_result["delivery_cost_inr"]
 
     # ----------------------------------------
     # Route score
@@ -99,27 +86,19 @@ def calculate_candidate_route(
     #
     # Lower score = better route
     #
-    # 50% travel time
-    # 50% delivery cost
-    #
-    # Normalization prevents INR and minutes
-    # from being directly mixed.
+    # 50% ML travel time
+    # 50% ML delivery cost
     # ----------------------------------------
 
-    time_score = (
-        ml_time / 60
-    )
+    time_score = ml_time / 60
 
-    cost_score = (
-        ml_cost / 1000
-    )
+    cost_score = ml_cost / 1000
 
     score = (
         0.5 * time_score
         +
         0.5 * cost_score
     )
-
 
     return {
 
@@ -137,7 +116,7 @@ def calculate_candidate_route(
 
         "google_duration_min":
             round(
-                google_time,
+                routing_time,
                 2
             ),
 
@@ -169,7 +148,6 @@ def find_best_route(
 
     candidates = []
 
-
     # ----------------------------------------
     # If no waypoint is provided
     # ----------------------------------------
@@ -180,7 +158,6 @@ def find_best_route(
             start,
             destination
         )
-
 
         ml_result = predict_route_metrics(
 
@@ -218,6 +195,23 @@ def find_best_route(
                 request.perishability_score
         )
 
+        # ----------------------------------------
+        # Calculate direct route score
+        # ----------------------------------------
+
+        ml_time = ml_result["travel_time_min"]
+
+        ml_cost = ml_result["delivery_cost_inr"]
+
+        time_score = ml_time / 60
+
+        cost_score = ml_cost / 1000
+
+        score = (
+            0.5 * time_score
+            +
+            0.5 * cost_score
+        )
 
         return {
 
@@ -229,31 +223,29 @@ def find_best_route(
                 ],
 
                 "distance_km":
-                    direct_route[
-                        "distance_km"
-                    ],
+                    direct_route["distance_km"],
 
                 "google_duration_min":
-                    direct_route[
-                        "duration_min"
-                    ],
+                    direct_route["duration_min"],
 
                 "ml_travel_time_min":
-                    ml_result[
-                        "travel_time_min"
-                    ],
+                    ml_time,
 
                 "ml_delivery_cost_inr":
-                    ml_result[
-                        "delivery_cost_inr"
-                    ],
+                    ml_cost,
 
-                "score": 0
+                "score":
+                    round(
+                        score,
+                        4
+                    ),
+
+                "polyline":
+                    direct_route["polyline"]
             },
 
             "alternatives": []
         }
-
 
     # ----------------------------------------
     # Calculate all waypoint routes
@@ -271,9 +263,8 @@ def find_best_route(
 
         candidates.append(result)
 
-
     # ----------------------------------------
-    # Find minimum score
+    # Find route with minimum score
     # ----------------------------------------
 
     best_route = min(
@@ -281,6 +272,9 @@ def find_best_route(
         key=lambda x: x["score"]
     )
 
+    # ----------------------------------------
+    # Return best route + alternatives
+    # ----------------------------------------
 
     return {
 

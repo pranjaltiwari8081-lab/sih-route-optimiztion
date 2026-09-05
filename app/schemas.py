@@ -72,7 +72,8 @@ class RouteResult(BaseModel):
 
     score: float
 
-
+    polyline: str = ""
+    
 class BestRouteResponse(BaseModel):
 
     best_route: RouteResult
