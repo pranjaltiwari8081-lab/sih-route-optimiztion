@@ -1,4 +1,4 @@
-from app.google_routes import get_google_route
+from app.osrm_routes import get_route
 from app.model_service import predict_route_metrics
 
 
