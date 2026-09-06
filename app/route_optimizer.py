@@ -1,286 +1,189 @@
-from app.osrm_routes import get_route
-from app.model_service import predict_route_metrics
+from .location_service import resolve_location
+from .osrm_routes import get_route
+from .model_service import predict_route_metrics
 
 
-def calculate_candidate_route(
-    start,
-    waypoint,
-    destination,
-    request
+def normalize(
+    value,
+    minimum,
+    maximum
 ):
-    # ----------------------------------------
-    # First leg: Start → Waypoint
-    # ----------------------------------------
 
-    first_leg = get_route(
-        start,
-        waypoint
+    if maximum == minimum:
+        return 0.0
+
+    return (
+        value - minimum
+    ) / (
+        maximum - minimum
     )
 
-    # ----------------------------------------
-    # Second leg: Waypoint → Destination
-    # ----------------------------------------
 
-    second_leg = get_route(
-        waypoint,
-        destination
+def optimize_route(request):
+
+    start = resolve_location(
+        request.start
     )
 
-    # ----------------------------------------
-    # Total distance
-    # ----------------------------------------
-
-    total_distance = (
-        first_leg["distance_km"]
-        + second_leg["distance_km"]
+    destination = resolve_location(
+        request.destination
     )
 
-    # ----------------------------------------
-    # Routing travel time
-    # ----------------------------------------
+    waypoints = []
 
-    routing_time = (
-        first_leg["duration_min"]
-        + second_leg["duration_min"]
-    )
+    for waypoint in request.waypoints:
 
-    # ----------------------------------------
-    # ML prediction
-    # ----------------------------------------
+        resolved = resolve_location(
+            waypoint
+        )
 
-    ml_result = predict_route_metrics(
-
-        distance_km=total_distance,
-
-        quantity_kg=request.quantity_kg,
-
-        hour=request.hour,
-
-        day_of_week=request.day_of_week,
-
-        traffic_level=request.traffic_level,
-
-        weather=request.weather,
-
-        road_type=request.road_type,
-
-        vehicle_type=request.vehicle_type,
-
-        fuel_price_inr_litre=
-            request.fuel_price_inr_litre,
-
-        vehicle_capacity_kg=
-            request.vehicle_capacity_kg,
-
-        perishability_score=
-            request.perishability_score
-    )
-
-    ml_time = ml_result["travel_time_min"]
-
-    ml_cost = ml_result["delivery_cost_inr"]
-
-    # ----------------------------------------
-    # Route score
-    # ----------------------------------------
-    #
-    # Lower score = better route
-    #
-    # 50% ML travel time
-    # 50% ML delivery cost
-    # ----------------------------------------
-
-    time_score = ml_time / 60
-
-    cost_score = ml_cost / 1000
-
-    score = (
-        0.5 * time_score
-        +
-        0.5 * cost_score
-    )
-
-    return {
-
-        "route": [
-            start["name"],
-            waypoint["name"],
-            destination["name"]
-        ],
-
-        "distance_km":
-            round(
-                total_distance,
-                2
-            ),
-
-        "routing_duration_min":
-            round(
-                routing_time,
-                2
-            ),
-
-        "ml_travel_time_min":
-            ml_time,
-
-        "ml_delivery_cost_inr":
-            ml_cost,
-
-        "score":
-            round(
-                score,
-                4
-            ),
-
-        "polyline": [
-            first_leg["polyline"],
-            second_leg["polyline"]
-        ]
-    }
-
-
-def find_best_route(
-    start,
-    destination,
-    waypoints,
-    request
-):
+        waypoints.append(
+            resolved
+        )
 
     candidates = []
 
-    # ----------------------------------------
-    # If no waypoint is provided
-    # ----------------------------------------
+    # Always compare direct route
+    candidate_paths = [
+        [start, destination]
+    ]
 
-    if not waypoints:
-
-        direct_route = get_route(
-            start,
-            destination
-        )
-
-        ml_result = predict_route_metrics(
-
-            distance_km=
-                direct_route["distance_km"],
-
-            quantity_kg=
-                request.quantity_kg,
-
-            hour=
-                request.hour,
-
-            day_of_week=
-                request.day_of_week,
-
-            traffic_level=
-                request.traffic_level,
-
-            weather=
-                request.weather,
-
-            road_type=
-                request.road_type,
-
-            vehicle_type=
-                request.vehicle_type,
-
-            fuel_price_inr_litre=
-                request.fuel_price_inr_litre,
-
-            vehicle_capacity_kg=
-                request.vehicle_capacity_kg,
-
-            perishability_score=
-                request.perishability_score
-        )
-
-        # ----------------------------------------
-        # Calculate direct route score
-        # ----------------------------------------
-
-        ml_time = ml_result["travel_time_min"]
-
-        ml_cost = ml_result["delivery_cost_inr"]
-
-        time_score = ml_time / 60
-
-        cost_score = ml_cost / 1000
-
-        score = (
-            0.5 * time_score
-            +
-            0.5 * cost_score
-        )
-
-        return {
-
-            "best_route": {
-
-                "route": [
-                    start["name"],
-                    destination["name"]
-                ],
-
-                "distance_km":
-                    direct_route["distance_km"],
-
-                "routing_duration_min":
-                    direct_route["duration_min"],
-
-                "ml_travel_time_min":
-                    ml_time,
-
-                "ml_delivery_cost_inr":
-                    ml_cost,
-
-                "score":
-                    round(
-                        score,
-                        4
-                    ),
-
-                "polyline":
-                    direct_route["polyline"]
-            },
-
-            "alternatives": []
-        }
-
-    # ----------------------------------------
-    # Calculate all waypoint routes
-    # ----------------------------------------
-
+    # Compare each waypoint route
     for waypoint in waypoints:
 
-        result = calculate_candidate_route(
-
+        candidate_paths.append([
             start,
             waypoint,
-            destination,
-            request
+            destination
+        ])
+
+    for path in candidate_paths:
+
+        coordinates = [
+            (
+                item[1],
+                item[2]
+            )
+            for item in path
+        ]
+
+        route_data = get_route(
+            coordinates
         )
 
-        candidates.append(result)
+        ml_data = predict_route_metrics(
+            distance_km=route_data[
+                "distance_km"
+            ],
+            quantity_kg=request.quantity_kg,
+            hour=request.hour,
+            traffic_level=request.traffic_level,
+            weather=request.weather,
+            vehicle_type=request.vehicle_type
+        )
 
-    # ----------------------------------------
-    # Find route with minimum score
-    # ----------------------------------------
+        # Combine real-road routing time
+        # with ML prediction.
+        effective_time = (
+            0.75
+            * route_data["duration_min"]
+            +
+            0.25
+            * ml_data["travel_time_min"]
+        )
 
-    best_route = min(
-        candidates,
-        key=lambda x: x["score"]
+        candidates.append({
+            "path": [
+                item[0]
+                for item in path
+            ],
+            "distance_km": route_data[
+                "distance_km"
+            ],
+            "routing_duration_min":
+                route_data[
+                    "duration_min"
+                ],
+            "ml_travel_time_min":
+                ml_data[
+                    "travel_time_min"
+                ],
+            "delivery_cost_inr":
+                ml_data[
+                    "delivery_cost_inr"
+                ],
+            "geometry":
+                route_data[
+                    "geometry"
+                ],
+            "effective_time_min":
+                effective_time
+        })
+
+    if not candidates:
+        raise RuntimeError(
+            "No valid routes found"
+        )
+
+    min_time = min(
+        x["effective_time_min"]
+        for x in candidates
     )
 
-    # ----------------------------------------
-    # Return best route + alternatives
-    # ----------------------------------------
+    max_time = max(
+        x["effective_time_min"]
+        for x in candidates
+    )
+
+    min_cost = min(
+        x["delivery_cost_inr"]
+        for x in candidates
+    )
+
+    max_cost = max(
+        x["delivery_cost_inr"]
+        for x in candidates
+    )
+
+    for candidate in candidates:
+
+        time_score = normalize(
+            candidate[
+                "effective_time_min"
+            ],
+            min_time,
+            max_time
+        )
+
+        cost_score = normalize(
+            candidate[
+                "delivery_cost_inr"
+            ],
+            min_cost,
+            max_cost
+        )
+
+        # 60% travel time
+        # 40% delivery cost
+        score = (
+            0.60 * time_score
+            +
+            0.40 * cost_score
+        )
+
+        candidate["score"] = score
+
+    candidates.sort(
+        key=lambda x: (
+            x["score"],
+            x["distance_km"]
+        )
+    )
+
+    best = candidates[0]
 
     return {
-
-        "best_route":
-            best_route,
-
-        "alternatives":
-            candidates
+        "best_route": best,
+        "alternatives": candidates,
+        "route_count": len(candidates)
     }

@@ -1,0 +1,23 @@
+{
+  "algorithm": "HistGradientBoostingRegressor",
+  "dataset_rows": 25000,
+  "feature_count": 6,
+  "features": [
+    "distance_km",
+    "quantity_kg",
+    "hour",
+    "traffic_level",
+    "weather",
+    "vehicle_type"
+  ],
+  "travel_time": {
+    "MAE": 18.867848626533668,
+    "RMSE": 25.186446643011248,
+    "R2": 0.999590124785062
+  },
+  "delivery_cost": {
+    "MAE": 107.43165045342548,
+    "RMSE": 139.69626114988563,
+    "R2": 0.9999133828040645
+  }
+}

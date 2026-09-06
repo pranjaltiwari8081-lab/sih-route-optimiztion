@@ -2,94 +2,51 @@ import requests
 
 
 URL = (
-    "http://127.0.0.1:8000/"
-    "find-best-route"
+    "http://127.0.0.1:8000"
+    "/find-best-route"
 )
 
 
-data = {
-
+payload = {
     "start": {
-
-        "name": "A",
-
-        "latitude": 28.6139,
-
-        "longitude": 77.2090
+        "name": "Gurgaon, Haryana"
     },
-
 
     "destination": {
-
-        "name": "D",
-
-        "latitude": 28.4595,
-
-        "longitude": 77.0266
+        "name": "Faridabad, Haryana"
     },
 
-
     "waypoints": [
-
         {
-
-            "name": "B",
-
-            "latitude": 28.5355,
-
-            "longitude": 77.3910
+            "name": "Sonipat, Haryana"
         },
-
         {
-
-            "name": "C",
-
-            "latitude": 28.4089,
-
-            "longitude": 77.3178
+            "name": "Panipat, Haryana"
         }
     ],
 
-
     "quantity_kg": 500,
-
-    "vehicle_type": "Truck",
 
     "traffic_level": "Medium",
 
     "weather": "Clear",
 
-    "road_type": "Highway",
+    "vehicle_type": "Truck",
 
-    "hour": 10,
-
-    "day_of_week": 1,
-
-    "fuel_price_inr_litre": 95,
-
-    "vehicle_capacity_kg": 1000,
-
-    "perishability_score": 0.7
+    "hour": 10
 }
 
 
 response = requests.post(
-
     URL,
-
-    json=data,
-
-    timeout=60
+    json=payload,
+    timeout=120
 )
-
 
 print(
     "Status:",
     response.status_code
 )
-
-
-print("\nResponse:")
 
 print(
     response.json()
